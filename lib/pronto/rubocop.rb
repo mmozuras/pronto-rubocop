@@ -31,15 +31,24 @@ module Pronto
       ruby_file?(path)
     end
 
-    def inspect(patch)
+    def offences(patch)
       processed_source = processed_source_for(patch)
-      offences = @inspector.send(:inspect_file, processed_source).first
 
-      offences.sort.reject(&:disabled?).map do |offence|
+      @inspector.send(:inspect_file, processed_source).first
+    end
+
+    def inspect(patch)
+      offences(patch).sort.reject(&:disabled?).map do |offence|
         patch.added_lines
           .select { |line| line.new_lineno == offence.line }
           .map { |line| new_message(offence, line) }
-      end
+      end.concat(
+        offences(patch).sort.reject(&:disabled?).select do |offence|
+          offence.cop_name == "Lint/Syntax"
+        end.map do |offence|
+          new_message(offence, patch.added_lines.last)
+        end
+      )
     end
 
     def new_message(offence, line)
